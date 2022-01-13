@@ -44,11 +44,12 @@ do
 
   if [[ ! -f "$UPLOADED_DIR/$id" ]]; then
     file_path="$CREATED_DIR/$id.mp4"
-    cp "$media_file_path" "$file_path"
+    ln -s "$media_file_path" "$file_path"
 
     title="$(echo "$media" | jq -r '.Title')"
     created_at="$(echo "$media" | jq -r '.CreateDate | strptime("%Y:%m:%d %H:%M:%S") | todateiso8601')"
 
+    echo "name: $title"
     echo "uploading: $file_path"
 
     response_code=$(curl -s \
@@ -78,6 +79,6 @@ do
       exit
     fi
 
-    read -p "Press Enter to continue" </dev/tty
+    # read -p "Press Enter to continue" </dev/tty
   fi
 done
