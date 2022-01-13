@@ -41,8 +41,9 @@ do
   media_file_path="$(echo "$media" | jq -r '.SourceFile')"
   file_name="$(basename "$media_file_path")"
   id=$(basename "$file_name" .MP4)
+  checksum="$(sha256sum "$media_file_path" | cut -d' ' -f1)"
 
-  if [[ ! -f "$UPLOADED_DIR/$id" ]]; then
+  if [[ ! -f "$UPLOADED_DIR/$checksum" ]]; then
     file_path="$CREATED_DIR/$id.mp4"
     ln -s "$media_file_path" "$file_path"
 
@@ -70,7 +71,7 @@ do
     if [[ "$response_code" == "200" ]]; then
       echo "success!"
       echo
-      touch "$UPLOADED_DIR/$id"
+      touch "$UPLOADED_DIR/$checksum"
       rm "$file_path"
     else
       echo "error! $response_code"
