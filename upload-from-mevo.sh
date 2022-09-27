@@ -39,12 +39,14 @@ token=$(curl -s "$API/users/token" \
 for media in "${media_list[@]}"
 do
   media_file_path="$(echo "$media" | jq -r '.SourceFile')"
+  echo "media: $media_file_path"
   file_name="$(basename "$media_file_path")"
   id=$(basename "$file_name" .MP4)
-  checksum="$(sha256sum "$media_file_path" | cut -d' ' -f1)"
+  checksum="$(head "$media_file_path" --bytes 1M | sha256sum - | cut -d' ' -f1)"
+  echo "checksum: $checksum"
 
   if [[ ! -f "$UPLOADED_DIR/$checksum" ]]; then
-    file_path="$CREATED_DIR/$id.mp4"
+    file_path="$CREATED_DIR/$checksum.mp4"
     ln -s "$media_file_path" "$file_path"
 
     title="$(echo "$media" | jq -r '.Title')"

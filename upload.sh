@@ -16,6 +16,12 @@ source "$DIR/.env"
 [[ -z "$CHANNEL_ID" ]] && echo "Missing .env var CHANNEL_ID" && exit
 [[ -z "$API" ]] && echo "Missing .env var API" && exit
 
+CREATED_DIR="$DIR/data/created"
+UPLOADED_DIR="$DIR/data/uploaded"
+
+mkdir -p "$CREATED_DIR"
+mkdir -p "$UPLOADED_DIR"
+
 client_id=$(curl -s "$API/oauth-clients/local" | jq -r ".client_id")
 client_secret=$(curl -s "$API/oauth-clients/local" | jq -r ".client_secret")
 token=$(curl -s "$API/users/token" \
