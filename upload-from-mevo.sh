@@ -73,7 +73,7 @@ do
     if [[ "$response_code" == "200" ]]; then
       echo "success!"
       echo
-      touch "$UPLOADED_DIR/$checksum"
+      mv response.txt "$UPLOADED_DIR/$checksum"
       rm "$file_path"
     else
       echo "error! $response_code"
