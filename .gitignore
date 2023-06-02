@@ -1,4 +1,4 @@
+node_modules
 .env
 /data/created
 /data/transcoded
-response.txt
