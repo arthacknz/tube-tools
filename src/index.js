@@ -7,9 +7,9 @@ import { mkdir, symlink, writeFile, readdir } from 'node:fs/promises'
 import { pathExists } from 'path-exists'
 import { basename, extname, join } from 'node:path'
 import { pipeline } from 'streaming-iterables'
-import dotEnv from 'dotenv'
 import { z } from 'zod'
-import { ExifDateTime, exiftool } from 'exiftool-vendored'
+import { exiftool } from 'exiftool-vendored'
+import { ListObjectsV2Command, S3 } from '@aws-sdk/client-s3'
 
 export async function getChannelId(config, options) {
   const { peertubeUrl, peertubeChannel } = config
@@ -182,23 +182,117 @@ export async function getPeertubeAccessToken(config) {
   return accessToken
 }
 
-const envSchema = z.object({
+async function* getPeertubeVideos(config, options, position = {}) {
+  const { peertubeUrl } = config
+  const { chunkSize } = options
+  const { start = 0, count = chunkSize } = position
+
+  console.log(start)
+
+  const { data } = await got(`api/v1/videos`, {
+    prefixUrl: peertubeUrl,
+    searchParams: {
+      count,
+      start,
+      sort: '-publishedAt',
+      skipCount: 'true',
+    },
+  }).json()
+
+  for (const video of data) {
+    yield video
+  }
+
+  if (!(data.length < count)) {
+    yield* getPeertubeVideos(config, options, {
+      start: start + data.length,
+      count,
+    })
+  }
+}
+
+export async function* getS3VideosFromOriginalsBucket(
+  config,
+  options,
+  continuationToken,
+) {
+  const { s3Bucket } = config
+  const { chunkSize } = options
+
+  const s3Client = createS3Client(config)
+
+  const command = new ListObjectsV2Command({
+    Bucket: s3Bucket,
+    Prefix: 'originals',
+    MaxKeys: chunkSize,
+    ContinuationToken: continuationToken,
+  })
+  const response = await s3Client.send(command)
+  const {
+    Contents: data,
+    IsTruncated: isTruncated,
+    NextContinuationToken: nextContinuationToken,
+  } = response
+
+  for (const video of data) {
+    yield video
+  }
+
+  if (isTruncated) {
+    yield* getS3VideosFromOriginalsBucket(
+      config,
+      options,
+      nextContinuationToken,
+    )
+  }
+}
+
+function createS3Client(config) {
+  const { s3Endpoint, s3Key, s3Secret } = config
+
+  return new S3({
+    forcePathStyle: false,
+    endpoint: s3Endpoint,
+    region: 'us-east-1', // because reasons...
+    credentials: {
+      accessKeyId: s3Key,
+      secretAccessKey: s3Secret,
+    },
+  })
+}
+
+const peertubeEnvSchema = z.object({
   PEERTUBE_URL: z.string().url().nonempty(),
   PEERTUBE_USERNAME: z.string().nonempty(),
   PEERTUBE_PASSWORD: z.string().nonempty(),
   PEERTUBE_CHANNEL: z.string().nonempty(),
 })
 
-export function loadConfig() {
-  dotEnv.config()
-
-  const env = envSchema.parse(process.env)
+export function loadPeertubeConfig() {
+  const env = peertubeEnvSchema.parse(process.env)
 
   return {
-    dataDir: join(process.cwd(), 'data'),
     peertubeUrl: env.PEERTUBE_URL,
     peertubeUsername: env.PEERTUBE_USERNAME,
     peertubePassword: env.PEERTUBE_PASSWORD,
     peertubeChannel: env.PEERTUBE_CHANNEL,
+  }
+}
+
+const s3EnvSchema = z.object({
+  S3_ENDPOINT: z.string().nonempty(),
+  S3_KEY: z.string().nonempty(),
+  S3_SECRET: z.string().nonempty(),
+  S3_BUCKET: z.string().nonempty(),
+})
+
+export function loadS3Config() {
+  const env = s3EnvSchema.parse(process.env)
+
+  return {
+    s3Endpoint: env.S3_ENDPOINT,
+    s3Key: env.S3_KEY,
+    s3Secret: env.S3_SECRET,
+    s3Bucket: env.S3_BUCKET,
   }
 }
