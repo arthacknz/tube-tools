@@ -7,6 +7,7 @@ import {
   getPeertubeAccessToken,
   loadConfig,
   uploadPeertubeVideo,
+  uploadPeertubeVideoDir,
 } from './index.js'
 
 const program = new Command()
@@ -31,8 +32,22 @@ program
       channelId,
       ...options,
     })
+  })
+
+program
+  .command('upload-dir')
+  .description('Upload a directory of videos to PeerTube')
+  .argument('<path>', 'path to directory')
+  .action(async (dirPath, _options) => {
+    const config = loadConfig()
+    const accessToken = await getPeertubeAccessToken(config)
+    const channelId = await getChannelId(config, { accessToken })
+    const uuid = await uploadPeertubeVideoDir(config, {
+      accessToken,
+      dirPath,
+      channelId,
+    })
     const { peertubeUrl } = config
-    console.log(`Uploaded: ${peertubeUrl}/videos/watch/${uuid}`)
   })
 
 program

@@ -3,9 +3,9 @@ import { createHash } from 'node:crypto'
 import { FormData } from 'formdata-node'
 import { fileFromPath } from 'formdata-node/file-from-path'
 import { createReadStream } from 'node:fs'
-import { mkdir, symlink, writeFile, realpath } from 'node:fs/promises'
-import { dirname, basename, extname, join } from 'node:path'
-import { sha256 } from 'crypto-hash'
+import { mkdir, symlink, writeFile, readdir } from 'node:fs/promises'
+import { pathExists } from 'path-exists'
+import { basename, extname, join } from 'node:path'
 import { pipeline } from 'streaming-iterables'
 import dotEnv from 'dotenv'
 import { z } from 'zod'
@@ -41,9 +41,13 @@ export async function uploadPeertubeVideo(config, options) {
     waitTranscoding = true,
   } = options
 
-  let { name, createdAt } = options
+  console.log(`Uploading to PeerTube: ${filePath}`)
 
-  const fileHash = await getFileHash({ filePath })
+  let { name, createdAt, fileHash } = options
+
+  if (fileHash == null) {
+    fileHash = await getFileHash({ filePath })
+  }
 
   await mkdir(join(dataDir, 'created'), { recursive: true })
   await mkdir(join(dataDir, 'uploaded'), { recursive: true })
@@ -85,7 +89,9 @@ export async function uploadPeertubeVideo(config, options) {
   form.set('privacy', privacy)
   form.set('waitTranscoding', waitTranscoding)
 
-  const { video: { uuid } } = await got
+  const {
+    video: { uuid },
+  } = await got
     .post({
       url: `api/v1/videos/upload`,
       prefixUrl: peertubeUrl,
@@ -98,7 +104,41 @@ export async function uploadPeertubeVideo(config, options) {
 
   await writeFile(join(dataDir, 'uploaded', fileHash), uuid, 'utf-8')
 
+  console.log(`Uploaded: ${peertubeUrl}/videos/watch/${uuid}`)
+
   return uuid
+}
+
+export async function uploadPeertubeVideoDir(config, options) {
+  const { dataDir } = config
+  const { accessToken, channelId, dirPath } = options
+
+  console.log(`Scanning dir for PeerTube uploads: ${dirPath}`)
+
+  let uuids = []
+
+  const fileNames = await readdir(dirPath)
+  for (const fileName of fileNames) {
+    const filePath = join(dirPath, fileName)
+
+    const fileHash = await getFileHash({ filePath })
+    const uploadedPath = join(dataDir, 'uploaded', fileHash)
+    if (await pathExists(uploadedPath)) {
+      console.log(`Skipping: ${filePath}`)
+      continue
+    }
+
+    const uuid = await uploadPeertubeVideo(config, {
+      accessToken,
+      channelId,
+      filePath,
+      fileHash,
+    })
+
+    uuids.push(uuid)
+  }
+
+  return uuids
 }
 
 export function getFileHash(options) {
