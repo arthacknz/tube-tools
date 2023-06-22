@@ -29,8 +29,8 @@ program
   .command('upload')
   .description('Upload a video to PeerTube')
   .argument('<path>', 'path to file')
-  .option('--name', 'name of video')
-  .option('--description', 'description for video')
+  .option('--name <text>', 'name of video')
+  .option('--description <text>', 'description for video')
   .action(async (filePath, options) => {
     const config = {
       ...baseConfig,
