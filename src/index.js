@@ -182,15 +182,17 @@ export async function getPeertubeAccessToken(config) {
   return accessToken
 }
 
-async function* getPeertubeVideos(config, options, position = {}) {
-  const { peertubeUrl } = config
-  const { chunkSize } = options
+export async function* getPeertubeVideos(config, options, position = {}) {
+  const { peertubeUrl, peertubeChannel } = config
+  const { chunkSize, accessToken } = options
   const { start = 0, count = chunkSize } = position
 
-  console.log(start)
-
-  const { data } = await got(`api/v1/videos`, {
+  const { data } = await got({
+    url: `api/v1/video-channels/${peertubeChannel}/videos`,
     prefixUrl: peertubeUrl,
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+    },
     searchParams: {
       count,
       start,

@@ -16,6 +16,7 @@
     "formdata-node": "^5.0.1",
     "got": "^13.0.0",
     "path-exists": "^5.0.0",
+    "set.prototype.difference": "^1.0.2",
     "streaming-iterables": "^7.1.0",
     "zod": "^3.21.4"
   },
