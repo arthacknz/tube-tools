@@ -12,6 +12,7 @@ import {
   loadS3Config,
   loadPeertubeConfig,
   getVideoIdsMissingFromS3OriginalsBucket,
+  uploadS3OriginalVideo,
 } from './index.js'
 
 dotEnv.config()
@@ -62,6 +63,24 @@ program
       accessToken,
       dirPath,
       channelId,
+    })
+  })
+
+program
+  .command('upload-original')
+  .description('Upload an original video to our backup storage')
+  .argument('<path>', 'path to file')
+  .requiredOption('--uuid <uuid>', 'uuid of video on PeerTube')
+  .action(async (filePath, options) => {
+    const config = {
+      ...baseConfig,
+      ...loadPeertubeConfig(),
+      ...loadS3Config(),
+    }
+
+    await uploadS3OriginalVideo(config, {
+      filePath,
+      ...options,
     })
   })
 

@@ -10,6 +10,7 @@ import { reduce } from 'streaming-iterables'
 import { z } from 'zod'
 import { exiftool } from 'exiftool-vendored'
 import { ListObjectsV2Command, S3 } from '@aws-sdk/client-s3'
+import { Upload as S3Upload } from '@aws-sdk/lib-storage'
 import difference from 'set.prototype.difference'
 
 export async function getChannelId(config, options) {
@@ -212,6 +213,38 @@ export async function* getPeertubeVideos(config, options, position = {}) {
       count,
     })
   }
+}
+
+export async function uploadS3OriginalVideo(config, options) {
+  const { s3Bucket } = config
+  const { filePath, uuid } = options
+
+  const s3Client = createS3Client(config)
+
+  const ext = extname(filePath).toLowerCase()
+  const key = `originals/${uuid}${ext}`
+
+  console.log(`Uploading: ${s3Bucket}/${key}`)
+
+  const upload = new S3Upload({
+    client: s3Client,
+    params: {
+      Bucket: s3Bucket,
+      Key: key,
+      Body: createReadStream(filePath),
+    },
+    leavePartsOnError: false,
+  })
+
+  /*
+  upload.on("httpUploadProgress", (progress) => {
+    console.log(progress)
+  })
+  */
+
+  await upload.done()
+
+  console.log(`Uploaded: ${s3Bucket}/${key}`)
 }
 
 export async function* getS3VideosFromOriginalsBucket(
