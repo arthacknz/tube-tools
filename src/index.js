@@ -64,7 +64,7 @@ export async function uploadPeertubeVideo(config, options) {
   if (name == null && metadata.Title != null) {
     name = metadata.Title
   }
-  if (createdAt == null && metadata.CreateDate != null) {
+  if (createdAt == null && metadata.CreateDate != null && typeof metadata.CreateDate.toDate === 'function') {
     createdAt = metadata.CreateDate.toDate()
   }
 
