@@ -2,19 +2,16 @@ import { Command } from 'commander'
 import { exiftool } from 'exiftool-vendored'
 import dotEnv from 'dotenv'
 import { join } from 'node:path'
-import { reduce } from 'streaming-iterables'
-import difference from 'set.prototype.difference'
 
 import {
   getFileHash,
   getChannelId,
   getPeertubeAccessToken,
-  getS3VideosFromOriginalsBucket,
   uploadPeertubeVideo,
   uploadPeertubeVideoDir,
   loadS3Config,
   loadPeertubeConfig,
-  getPeertubeVideos,
+  getVideoIdsMissingFromS3OriginalsBucket,
 } from './index.js'
 
 dotEnv.config()
@@ -60,6 +57,7 @@ program
     }
     const accessToken = await getPeertubeAccessToken(config)
     const channelId = await getChannelId(config, { accessToken })
+
     const uuid = await uploadPeertubeVideoDir(config, {
       accessToken,
       dirPath,
@@ -95,23 +93,8 @@ program
       ...loadS3Config(),
     }
 
-    const accessToken = await getPeertubeAccessToken(config)
-    const peertubeVideos = getPeertubeVideos(config, { chunkSize: 10, accessToken })
-    const peertubeVideoIds = await reduce((set, video) => {
-      set.add(video.uuid)
-      return set
-    }, new Set(), peertubeVideos)
-
-    const s3OriginalVideos = getS3VideosFromOriginalsBucket(config, { chunkSize: 10 })
-    const s3OriginalVideoIds = await reduce((set, video) => {
-      const { Key: key } = video
-      if (!key.startsWith('originals/')) throw new Error('unexpected')
-      const uuid = video.Key.substring(10, 46)
-      set.add(uuid)
-      return set
-    }, new Set(), s3OriginalVideos)
-
-    const idsNotInS3Originals = difference(peertubeVideoIds, s3OriginalVideoIds)
+    const peertubeAccessToken = await getPeertubeAccessToken(config)
+    const idsNotInS3Originals = await getVideoIdsMissingFromS3OriginalsBucket(config, { chunkSize: 10, peertubeAccessToken })
     console.log('Video uuids not in S3 originals/ bucket:')
     console.log()
     for (const id of idsNotInS3Originals) {

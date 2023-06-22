@@ -6,10 +6,11 @@ import { createReadStream } from 'node:fs'
 import { mkdir, symlink, writeFile, readdir } from 'node:fs/promises'
 import { pathExists } from 'path-exists'
 import { basename, extname, join } from 'node:path'
-import { pipeline } from 'streaming-iterables'
+import { reduce } from 'streaming-iterables'
 import { z } from 'zod'
 import { exiftool } from 'exiftool-vendored'
 import { ListObjectsV2Command, S3 } from '@aws-sdk/client-s3'
+import difference from 'set.prototype.difference'
 
 export async function getChannelId(config, options) {
   const { peertubeUrl, peertubeChannel } = config
@@ -247,6 +248,29 @@ export async function* getS3VideosFromOriginalsBucket(
       nextContinuationToken,
     )
   }
+}
+
+export async function getVideoIdsMissingFromS3OriginalsBucket(config, options) {
+  const { chunkSize, peertubeAccessToken } = options
+
+  const peertubeVideos = getPeertubeVideos(config, { chunkSize, accessToken: peertubeAccessToken })
+  const peertubeVideoIds = await reduce((set, video) => {
+    set.add(video.uuid)
+    return set
+  }, new Set(), peertubeVideos)
+
+  const s3OriginalVideos = getS3VideosFromOriginalsBucket(config, { chunkSize })
+  const s3OriginalVideoIds = await reduce((set, video) => {
+    const { Key: key } = video
+    if (!key.startsWith('originals/')) throw new Error('unexpected')
+    const uuid = video.Key.substring(10, 46)
+    set.add(uuid)
+    return set
+  }, new Set(), s3OriginalVideos)
+
+  const idsNotInS3Originals = difference(peertubeVideoIds, s3OriginalVideoIds)
+
+  return idsNotInS3Originals
 }
 
 function createS3Client(config) {
