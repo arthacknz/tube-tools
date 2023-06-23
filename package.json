@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "module": "src/index.js",
+  "bin": "src/bin.js",
   "scripts": {
     "lint": "prettier --check \"./(src|test|bench)/**/*.js\"",
     "format": "prettier --write \"./(src|test|bench)/**/*.js\"",

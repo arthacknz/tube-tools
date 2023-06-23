@@ -43,8 +43,6 @@ export async function uploadPeertubeVideo(config, options) {
     waitTranscoding = true,
   } = options
 
-  console.log(`Uploading to PeerTube: ${filePath}`)
-
   let { name, createdAt, fileHash } = options
 
   if (fileHash == null) {
@@ -106,18 +104,12 @@ export async function uploadPeertubeVideo(config, options) {
 
   await writeFile(join(dataDir, 'uploaded', fileHash), uuid, 'utf-8')
 
-  console.log(`Uploaded: ${peertubeUrl}/videos/watch/${uuid}`)
-
   return uuid
 }
 
-export async function uploadPeertubeVideoDir(config, options) {
+export async function* scanVideoDir(config, options) {
   const { dataDir } = config
-  const { accessToken, channelId, dirPath } = options
-
-  console.log(`Scanning dir for PeerTube uploads: ${dirPath}`)
-
-  let uuids = []
+  const { dirPath } = options
 
   const fileNames = await readdir(dirPath)
   for (const fileName of fileNames) {
@@ -126,21 +118,14 @@ export async function uploadPeertubeVideoDir(config, options) {
     const fileHash = await getFileHash({ filePath })
     const uploadedPath = join(dataDir, 'uploaded', fileHash)
     if (await pathExists(uploadedPath)) {
-      console.log(`Skipping: ${filePath}`)
       continue
     }
 
-    const uuid = await uploadPeertubeVideo(config, {
-      accessToken,
-      channelId,
+    yield {
       filePath,
-      fileHash,
-    })
-
-    uuids.push(uuid)
+      fileHash
+    }
   }
-
-  return uuids
 }
 
 export function getFileHash(options) {
@@ -224,8 +209,6 @@ export async function uploadS3OriginalVideo(config, options) {
   const ext = extname(filePath).toLowerCase()
   const key = `originals/${uuid}${ext}`
 
-  console.log(`Uploading: ${s3Bucket}/${key}`)
-
   const upload = new S3Upload({
     client: s3Client,
     params: {
@@ -244,7 +227,7 @@ export async function uploadS3OriginalVideo(config, options) {
 
   await upload.done()
 
-  console.log(`Uploaded: ${s3Bucket}/${key}`)
+  return key
 }
 
 export async function* getS3VideosFromOriginalsBucket(

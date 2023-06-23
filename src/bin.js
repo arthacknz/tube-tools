@@ -4,14 +4,14 @@ import dotEnv from 'dotenv'
 import { join } from 'node:path'
 
 import {
-  getFileHash,
   getChannelId,
+  getFileHash,
   getPeertubeAccessToken,
-  uploadPeertubeVideo,
-  uploadPeertubeVideoDir,
-  loadS3Config,
-  loadPeertubeConfig,
   getVideoIdsMissingFromS3OriginalsBucket,
+  loadPeertubeConfig,
+  loadS3Config,
+  scanVideoDir,
+  uploadPeertubeVideo,
   uploadS3OriginalVideo,
 } from './index.js'
 
@@ -28,23 +28,84 @@ program
 
 program
   .command('upload')
+  .description('Upload a video to PeerTube and our backup storage')
+  .argument('<path>', 'path to file')
+  .option('--name <text>', 'name of video')
+  .option('--description <text>', 'description for video')
+  .action(async (filePath, options) => {
+    const { name, description } = options
+    const config = {
+      ...baseConfig,
+      ...loadPeertubeConfig(),
+      ...loadS3Config(),
+    }
+    const { peertubeUrl, s3Bucket } = config
+    const accessToken = await getPeertubeAccessToken(config)
+    const channelId = await getChannelId(config, { accessToken })
+
+    console.log(`Uploading to PeerTube: ${filePath}`)
+    const uuid = await uploadPeertubeVideo(config, {
+      accessToken,
+      filePath,
+      channelId,
+      name,
+      description,
+    })
+    console.log(`Uploaded: ${peertubeUrl}/videos/watch/${uuid}`)
+
+    console.log(`Uploading original to backup: ${uuid}`)
+    const key = await uploadS3OriginalVideo(config, {
+      filePath,
+      uuid,
+    })
+    console.log(`Uploaded: ${s3Bucket}/${key}`)
+  })
+
+program
+  .command('upload-peertube')
   .description('Upload a video to PeerTube')
   .argument('<path>', 'path to file')
   .option('--name <text>', 'name of video')
   .option('--description <text>', 'description for video')
   .action(async (filePath, options) => {
+    const { name, description } = options
     const config = {
       ...baseConfig,
       ...loadPeertubeConfig(),
     }
     const accessToken = await getPeertubeAccessToken(config)
     const channelId = await getChannelId(config, { accessToken })
+
+    console.log(`Uploading to PeerTube: ${filePath}`)
     const uuid = await uploadPeertubeVideo(config, {
       accessToken,
       filePath,
       channelId,
-      ...options,
+      name,
+      description,
     })
+    const { peertubeUrl } = config
+    console.log(`Uploaded: ${peertubeUrl}/videos/watch/${uuid}`)
+  })
+
+program
+  .command('upload-original')
+  .description('Upload an original video to our backup storage')
+  .argument('<path>', 'path to file')
+  .requiredOption('--uuid <uuid>', 'uuid of video on PeerTube')
+  .action(async (filePath, options) => {
+    const { uuid } = options
+    const config = {
+      ...baseConfig,
+      ...loadPeertubeConfig(),
+      ...loadS3Config(),
+    }
+    const { s3Bucket } = config
+
+    console.log(`Uploading original to backup: ${uuid}`)
+    const key = await uploadS3OriginalVideo(config, { filePath, uuid })
+    console.log(`Uploaded: ${s3Bucket}/${key}`)
+
   })
 
 program
@@ -59,29 +120,25 @@ program
     const accessToken = await getPeertubeAccessToken(config)
     const channelId = await getChannelId(config, { accessToken })
 
-    const uuid = await uploadPeertubeVideoDir(config, {
-      accessToken,
-      dirPath,
-      channelId,
-    })
-  })
+    console.log(`Scanning dir for new uploads: ${dirPath}`)
+    const newUploads = scanVideoDir(config, { dirPath })
+    for (const { filePath, fileHash } of newUploads) {
+      console.log(`Uploading to PeerTube: ${filePath}`)
+      const uuid = await uploadPeertubeVideo(config, {
+        accessToken,
+        filePath,
+        fileHash,
+        channelId,
+      })
+      console.log(`Uploaded: ${peertubeUrl}/videos/watch/${uuid}`)
 
-program
-  .command('upload-original')
-  .description('Upload an original video to our backup storage')
-  .argument('<path>', 'path to file')
-  .requiredOption('--uuid <uuid>', 'uuid of video on PeerTube')
-  .action(async (filePath, options) => {
-    const config = {
-      ...baseConfig,
-      ...loadPeertubeConfig(),
-      ...loadS3Config(),
+      console.log(`Uploading original to backup: ${uuid}`)
+      const key = await uploadS3OriginalVideo(config, {
+        filePath,
+        uuid,
+      })
+      console.log(`Uploaded: ${s3Bucket}/${key}`)
     }
-
-    await uploadS3OriginalVideo(config, {
-      filePath,
-      ...options,
-    })
   })
 
 program
@@ -95,7 +152,7 @@ program
 
 program
   .command('hash')
-  .description('Get hash of initial 1 MB of file)')
+  .description('Get hash of initial 1 MB of file')
   .argument('<path>', 'path to file')
   .action(async (filePath) => {
     const hash = await getFileHash({ filePath })
