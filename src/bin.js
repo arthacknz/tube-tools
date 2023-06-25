@@ -122,7 +122,7 @@ program
 
     console.log(`Scanning dir for new uploads: ${dirPath}`)
     const newUploads = scanVideoDir(config, { dirPath })
-    for (const { filePath, fileHash } of newUploads) {
+    for await (const { filePath, fileHash } of newUploads) {
       console.log(`Uploading to PeerTube: ${filePath}`)
       const uuid = await uploadPeertubeVideo(config, {
         accessToken,
