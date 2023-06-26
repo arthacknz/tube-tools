@@ -1,6 +1,14 @@
 # tube-tools
 
-## setup
+## install
+
+```shell
+git clone git@github.com:arthacknz/tube-tools
+cd tube-tools
+npm install
+```
+
+## config
 
 `.env`
 
@@ -18,7 +26,11 @@ S3_BUCKET="xxxx"
 
 ## usage
 
+```shell
+./tube-tools
 ```
+
+```txt
 Usage: tube-tools [options] [command]
 
 Command-line tools to manage tube.arthack.nz
