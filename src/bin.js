@@ -105,7 +105,6 @@ program
     console.log(`Uploading original to backup: ${uuid}`)
     const key = await uploadS3OriginalVideo(config, { filePath, uuid })
     console.log(`Uploaded: ${s3Bucket}/${key}`)
-
   })
 
 program
@@ -170,7 +169,10 @@ program
     }
 
     const peertubeAccessToken = await getPeertubeAccessToken(config)
-    const idsNotInS3Originals = await getVideoIdsMissingFromS3OriginalsBucket(config, { chunkSize: 10, peertubeAccessToken })
+    const idsNotInS3Originals = await getVideoIdsMissingFromS3OriginalsBucket(
+      config,
+      { chunkSize: 10, peertubeAccessToken },
+    )
     console.log('Video uuids not in S3 originals/ bucket:')
     console.log()
     for (const id of idsNotInS3Originals) {

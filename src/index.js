@@ -64,7 +64,11 @@ export async function uploadPeertubeVideo(config, options) {
   if (name == null && metadata.Title != null) {
     name = metadata.Title
   }
-  if (createdAt == null && metadata.CreateDate != null && typeof metadata.CreateDate.toDate === 'function') {
+  if (
+    createdAt == null &&
+    metadata.CreateDate != null &&
+    typeof metadata.CreateDate.toDate === 'function'
+  ) {
     createdAt = metadata.CreateDate.toDate()
   }
 
@@ -123,7 +127,7 @@ export async function* scanVideoDir(config, options) {
 
     yield {
       filePath,
-      fileHash
+      fileHash,
     }
   }
 }
@@ -269,20 +273,31 @@ export async function* getS3VideosFromOriginalsBucket(
 export async function getVideoIdsMissingFromS3OriginalsBucket(config, options) {
   const { chunkSize, peertubeAccessToken } = options
 
-  const peertubeVideos = getPeertubeVideos(config, { chunkSize, accessToken: peertubeAccessToken })
-  const peertubeVideoIds = await reduce((set, video) => {
-    set.add(video.uuid)
-    return set
-  }, new Set(), peertubeVideos)
+  const peertubeVideos = getPeertubeVideos(config, {
+    chunkSize,
+    accessToken: peertubeAccessToken,
+  })
+  const peertubeVideoIds = await reduce(
+    (set, video) => {
+      set.add(video.uuid)
+      return set
+    },
+    new Set(),
+    peertubeVideos,
+  )
 
   const s3OriginalVideos = getS3VideosFromOriginalsBucket(config, { chunkSize })
-  const s3OriginalVideoIds = await reduce((set, video) => {
-    const { Key: key } = video
-    if (!key.startsWith('originals/')) throw new Error('unexpected')
-    const uuid = video.Key.substring(10, 46)
-    set.add(uuid)
-    return set
-  }, new Set(), s3OriginalVideos)
+  const s3OriginalVideoIds = await reduce(
+    (set, video) => {
+      const { Key: key } = video
+      if (!key.startsWith('originals/')) throw new Error('unexpected')
+      const uuid = video.Key.substring(10, 46)
+      set.add(uuid)
+      return set
+    },
+    new Set(),
+    s3OriginalVideos,
+  )
 
   const idsNotInS3Originals = difference(peertubeVideoIds, s3OriginalVideoIds)
 
