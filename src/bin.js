@@ -116,6 +116,7 @@ program
       ...baseConfig,
       ...loadPeertubeConfig(),
     }
+    const { peertubeUrl } = config
     const accessToken = await getPeertubeAccessToken(config)
     const channelId = await getChannelId(config, { accessToken })
 
