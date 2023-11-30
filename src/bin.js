@@ -115,6 +115,7 @@ program
     const config = {
       ...baseConfig,
       ...loadPeertubeConfig(),
+      ...loadS3Config(),
     }
     const { peertubeUrl } = config
     const accessToken = await getPeertubeAccessToken(config)
