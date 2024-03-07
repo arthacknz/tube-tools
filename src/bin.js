@@ -117,7 +117,7 @@ program
       ...loadPeertubeConfig(),
       ...loadS3Config(),
     }
-    const { peertubeUrl } = config
+    const { peertubeUrl, s3Bucket } = config
     const accessToken = await getPeertubeAccessToken(config)
     const channelId = await getChannelId(config, { accessToken })
 
